@@ -1,7 +1,7 @@
-./dataset/submission.csv
-./dataset/__pycache__
-./dataset/gender_submission.csv
-./tools/titanic_best_epoch_fastlr_30.pth
-./tools/__pycache__
-./tools/__pycache__
+dataset/submission.csv
+dataset/__pycache__
+dataset/gender_submission.csv
+tools/titanic_best_epoch_fastlr_30.pth
+tools/__pycache__
+tools/__pycache__
 
