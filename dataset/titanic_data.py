@@ -16,24 +16,31 @@ class TitanicData(Dataset):
         data_path = self.data_path
         if(self.split == 'train' or self.split == 'val'):
             train = pd.read_csv(data_path, keep_default_na=False)
+            train = self.process_family(train)
+            train = self.process_embarked(train)
+            train = self.process_cabin(train)
+            train = self.get_titles(train)
+            train = self.get_age(train)
+            train = self.process_names(train)
             # print(train.isna().sum())
             # print(train["Pclass"].unique())
             # print(train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
-            train.drop("Name", axis=1, inplace=True)
-            train.drop("Age", axis=1, inplace=True)
-            train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
+            #train.drop("Name", axis=1, inplace=True)
+            #train.drop("Age", axis=1, inplace=True)
+            #train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
             train["Sex"] = train["Sex"].map({"female":0, "male":1})
             train["sex_class"] = train["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
-            train["fsize"] = train["SibSp"] + train["Parch"] + 1
+            # train["fsize"] = train["SibSp"] + train["Parch"] + 1
             train.drop("Ticket", axis=1, inplace=True)
-            train.drop("Cabin", axis=1,inplace=True)
-            train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3, "":0})
-            train = train.fillna(0)
+            #train.drop("Cabin", axis=1,inplace=True)
+            #train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3, "":0})
+            #train = train.fillna(0)
             # train.drop("Embarked", axis=1, inplace=True)
-            train.drop("PassengerId", axis=1, inplace = True)
+            # train.drop("PassengerId", axis=1, inplace = True)
             survived = train["Survived"]
             # print(survived)
             train.drop("Survived", axis = 1, inplace= True)
+            print(train)
             labels = survived.to_numpy()
             data = train.to_numpy()
             data = self.get_data_pca(data)
@@ -59,12 +66,92 @@ class TitanicData(Dataset):
             train.drop("PassengerId", axis=1, inplace = True)
             data = train.to_numpy()
             labels = np.zeros((len(data[:,0])))
-            data = self.get_data_pca(data)      
+            # data = self.get_data_pca(data)      
         
         # print(len(data[:, 0]))
         # print(data[190], labels[190])
         # print(labels.shape, data.shape)
         return data, labels
+    
+    def process_family(self, df):
+        df['FamilySize'] = df['Parch'] + df['SibSp'] + 1
+        df['Single'] = df['FamilySize'].map(lambda s:1 if s == 1 else 0)
+        df['SmallFamily'] = df['FamilySize'].map(lambda s:1 if 2 <= s <= 4 else 0)
+        df['LargeFamily'] = df['FamilySize'].map(lambda s:1 if s >= 5 else 0)
+        return df
+
+    def process_embarked(self, df):
+        df.Embarked.fillna('S', inplace=True)
+        df_dummies = pd.get_dummies(df['Embarked'], prefix='Embarked')
+        df = pd.concat([df, df_dummies], axis=1)
+        df.drop('Embarked', axis = 1, inplace=True)
+        return df
+
+    def process_cabin(self, df):
+        df.Cabin = df.Cabin.fillna('U')
+        # df.Cabin.fillna('U', inplace=True)
+        print(df['Cabin'])
+        df['Cabin'] = df['Cabin'].map(lambda c : c[0])
+        df_dummies = pd.get_dummies(df['Cabin'], prefix='Cabin')
+        df = pd.concat([df, df_dummies], axis=1)
+        df.drop('Cabin', axis=1, inplace=True)
+        return df
+
+    def get_titles(self, df):
+        Title_Dict = {
+            'Capt':'Officer',
+            'Col' : 'Officer',
+            'Don' : 'Officer',
+            'Dr' : 'Royalty', 
+            'Jonkheer': 'Royalty',
+            'Lady': 'Royalty',
+            'Major' : "Officer",
+            'Master' : 'Master',
+            'Miss' : 'Miss',
+            'Mlle' : 'Miss',
+            'Mme' : 'Mrs',
+            'Mr' : 'Mr',
+            'Mrs' : 'Mrs',
+            'Ms' : 'Mrs',
+            'Rev' : 'Officer', 
+            'Sir' : 'Royalty',
+            'the Countess' : 'Royalty'
+        }
+        df['Title'] =  df['Name'].map(lambda name: name.split(',')[1].split('.')[0].strip())
+        df['Title'] = df.Title.map(Title_Dict)
+        return df
+
+    def fill_age(self, row):
+        condition = (
+            (group_median_train['Sex'] == row['Sex']) &
+            (group_median_train['Title'] == row['Title']) &
+            (group_median_train['Pclass'] == row['Pclass'])
+        )
+        if np.isnan(group_median_train[condition]['Age'].values[0]):
+            print('true')
+            condition = (
+                (group_median_train['Sex'] == row['Sex']) &
+                (group_median_train['Pclass'] == row['Pclass'])
+            )
+        return group_median_train[condition]['Age'].values[0]
+
+    def get_age(self, df):
+        group_train = df.groupby(['Sex', 'Pclass', 'Title'])
+        group_median_train = group_train.median()
+        # print(group_median_train)
+        group_median_train = group_median_train.reset_index()[['Sex', 'Pclass', 'Title', 'Age']]
+        # print(group_median_train)
+        df['Age'] = df.apply(lambda row: self.fill_age(row) if np.isnan(row['Age']) else row['Age'], axis = 1)
+        return df
+
+    def process_names(self, df):
+        df.drop('Name', axis =1, inplace=True)
+
+        title_dummies = pd.get_dummies(df['Title'], prefix='Title')
+        df = pd.concat([df, title_dummies], axis=1)
+        df.drop('Title', axis=1, inplace=True)
+        return df
+
 
     def __len__(self):
         return (len(self.data[:,0]))
@@ -115,7 +202,7 @@ class TitanicData(Dataset):
 
 ##Testing the dataloader
 if __name__ == '__main__':
-    titanic_train_data = TitanicData('train', data_path='./dataset/train.csv', isTrain=False)
+    titanic_train_data = TitanicData('train', data_path='./dataset/train.csv', isTrain=True)
     # print(titanic_train_data)
     data_loader = DataLoader(titanic_train_data, batch_size = 1, shuffle=False, num_workers = 0)
     for idx, item in enumerate(data_loader):
