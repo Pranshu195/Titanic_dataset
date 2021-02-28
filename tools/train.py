@@ -15,7 +15,7 @@ torch.autograd.set_detect_anomaly(True)
 def train(data_path, train):
     dataset = TitanicData('train', data_path, isTrain=True)
     train_loader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0)
-    model = TitanicModel(8, 4, 1)
+    model = TitanicModel(5, 3, 1)
     criterion = nn.MSELoss()
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=1E-4)
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
@@ -33,7 +33,7 @@ def train(data_path, train):
             best_val_acc, best_val_loss = evaluate(model, dataset, criterion)
             print('Best Validation Accuracy : {}'.format(best_val_acc))
             print('Best Validation Loss : {}'.format(best_val_loss))
-
+            # exit(0)
         for epoch in range(epochs):
             train_loss = 0.0
             model.train()
@@ -62,7 +62,7 @@ def train(data_path, train):
                 best_val_loss = val_loss
                 best_val_acc = validation_acc
                 best_epoch = epoch
-                # torch.save(model.state_dict(), "tools/titanic_best_epoch_fastlr_{}.pth".format(epoch + 1))
+                # torch.save(model.state_dict(), "tools/titanic_best_epoch_fastlr_pca_{}.pth".format(epoch + 1))
             print('Best Validation Loss : {}'.format(best_val_loss))
             print('Best Validation Accuracy : {}'.format(best_val_acc))
             print('Best Epoch: {}'.format(best_epoch + 1))
@@ -70,8 +70,8 @@ def train(data_path, train):
                 .format(epoch + 1, 30, train_loss / len(train_loader), val_loss, validation_acc))
     else:
         print("for creating submission file")
-        model.load_state_dict(torch.load('tools/titanic_best_epoch_fastlr_30.pth'))
-        dataset1 = TitanicData('test', data_path, isTrain=False)
+        model.load_state_dict(torch.load('tools/titanic_best_epoch_fastlr27Feb_30.pth'))
+        dataset1 = TitanicData('test', "./dataset/test.csv", isTrain=False)
         eval_test(model, dataset1, criterion)
     return best_val_loss
 

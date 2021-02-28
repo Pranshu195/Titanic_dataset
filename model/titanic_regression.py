@@ -7,14 +7,14 @@ class TitanicModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(TitanicModel, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.sigmoid = nn.ReLU()
+        self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, output_size )
         # self.relu1 = nn.ReLU()
         # self.fc3 = nn.Linear(3, output_size)
 
     def forward(self, x):
         out = self.fc1(x)
-        out = self.sigmoid(out)
+        out = self.relu(out)
         out = self.fc2(out)
         # out = self.relu1(out)
         # out = self.fc3(out)
