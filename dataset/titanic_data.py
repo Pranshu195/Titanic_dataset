@@ -15,11 +15,12 @@ class TitanicData(Dataset):
     def get_data(self):
         data_path = self.data_path
         if(self.split == 'train' or self.split == 'val'):
-            train = pd.read_csv(data_path, keep_default_na=False)
+            train = pd.read_csv(data_path)
             train = self.process_family(train)
             train = self.process_embarked(train)
             train = self.process_cabin(train)
             train = self.get_titles(train)
+            # print(train['Age'].isnull().sum())
             train = self.get_age(train)
             train = self.process_names(train)
             # print(train.isna().sum())
@@ -27,7 +28,7 @@ class TitanicData(Dataset):
             # print(train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
             #train.drop("Name", axis=1, inplace=True)
             #train.drop("Age", axis=1, inplace=True)
-            #train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
+            train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
             train["Sex"] = train["Sex"].map({"female":0, "male":1})
             train["sex_class"] = train["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
             # train["fsize"] = train["SibSp"] + train["Parch"] + 1
@@ -36,7 +37,7 @@ class TitanicData(Dataset):
             #train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3, "":0})
             #train = train.fillna(0)
             # train.drop("Embarked", axis=1, inplace=True)
-            # train.drop("PassengerId", axis=1, inplace = True)
+            train.drop("PassengerId", axis=1, inplace = True)
             survived = train["Survived"]
             # print(survived)
             train.drop("Survived", axis = 1, inplace= True)
@@ -47,24 +48,37 @@ class TitanicData(Dataset):
             # print(data)
         elif(self.split == 'test'): 
             train = pd.read_csv(data_path)
+            train = self.process_family(train)
+            train = self.process_embarked(train)
+            train = self.process_cabin(train)
+            train = self.get_titles(train)
+            # print(train['Age'].isnull().sum())
+            train = self.get_age(train)
+            train = self.process_names(train)
             # print(train.isna().sum())
             # print(train["Pclass"].unique())
             # print(train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
-            train.drop("Name", axis=1, inplace=True)
-            train.drop("Age", axis=1, inplace=True)
+            # train.drop("Name", axis=1, inplace=True)
+            # train.drop("Age", axis=1, inplace=True)
             train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
             train["Sex"] = train["Sex"].map({"female":0, "male":1})
             train["sex_class"] = train["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
-            train["fsize"] = train["SibSp"] + train["Parch"] + 1
+            # train["fsize"] = train["SibSp"] + train["Parch"] + 1
             train.drop("Ticket", axis=1, inplace=True)
-            train.drop("Cabin", axis=1,inplace=True)
-            train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3})
-            train = train.fillna(0)
+            # train.drop("Cabin", axis=1,inplace=True)
+            # train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3})
+            # train = train.fillna(0)
             # print("Here")
             # print(train)
             # train.drop("Embarked", axis=1, inplace=True)
             train.drop("PassengerId", axis=1, inplace = True)
+            print(train.isnull().sum())
+            print(train.loc[train['Fare'].isnull()].index)
+            train['Fare'].fillna(0, inplace=True)
+            print(train.isnull().sum())
+
             data = train.to_numpy()
+            data = self.get_data_pca(data)
             labels = np.zeros((len(data[:,0])))
             # data = self.get_data_pca(data)      
         
@@ -82,15 +96,18 @@ class TitanicData(Dataset):
 
     def process_embarked(self, df):
         df.Embarked.fillna('S', inplace=True)
+        # df['Embarked'] = df['Embarked'].map(lambda c:'S' if c == "" else c)
         df_dummies = pd.get_dummies(df['Embarked'], prefix='Embarked')
         df = pd.concat([df, df_dummies], axis=1)
         df.drop('Embarked', axis = 1, inplace=True)
         return df
 
     def process_cabin(self, df):
-        df.Cabin = df.Cabin.fillna('U')
-        # df.Cabin.fillna('U', inplace=True)
-        print(df['Cabin'])
+        # df.Cabin = df.Cabin.fillna('U')
+        df['Cabin'].fillna('U', inplace=True)
+        # df['Cabin'] = df['Cabin'].replace(np.nan , 'U')
+        # df['Cabin'] = df['Cabin'].map(lambda c:'U' if c == "" else c)
+        # print(df['Cabin'])
         df['Cabin'] = df['Cabin'].map(lambda c : c[0])
         df_dummies = pd.get_dummies(df['Cabin'], prefix='Cabin')
         df = pd.concat([df, df_dummies], axis=1)
@@ -121,7 +138,7 @@ class TitanicData(Dataset):
         df['Title'] = df.Title.map(Title_Dict)
         return df
 
-    def fill_age(self, row):
+    def fill_age(self, row, group_median_train):
         condition = (
             (group_median_train['Sex'] == row['Sex']) &
             (group_median_train['Title'] == row['Title']) &
@@ -138,10 +155,10 @@ class TitanicData(Dataset):
     def get_age(self, df):
         group_train = df.groupby(['Sex', 'Pclass', 'Title'])
         group_median_train = group_train.median()
+        # print(group_median_train.columns)
+        group_median_train = group_median_train.reset_index()[['Sex', 'Pclass', 'Title','Age']]
         # print(group_median_train)
-        group_median_train = group_median_train.reset_index()[['Sex', 'Pclass', 'Title', 'Age']]
-        # print(group_median_train)
-        df['Age'] = df.apply(lambda row: self.fill_age(row) if np.isnan(row['Age']) else row['Age'], axis = 1)
+        df['Age'] = df.apply(lambda row: self.fill_age(row,group_median_train) if np.isnan(row['Age']) else row['Age'], axis = 1)
         return df
 
     def process_names(self, df):
@@ -189,8 +206,8 @@ class TitanicData(Dataset):
             variance_explained.append((i/sum(eigen_values))*100)
         # print(variance_explained)
         
-        ###  using first 6 components as they explain 100% of the dataset
-        projection_matrix = (eigen_vectors.T[:][:5]).T
+        ###  using first 23 components as they explain 100% of the dataset
+        projection_matrix = (eigen_vectors.T[:][:22]).T
         # print(projection_matrix)
 
         #### Getting the product of original std data and projection matrix
@@ -208,7 +225,7 @@ if __name__ == '__main__':
     for idx, item in enumerate(data_loader):
         data, label = item
         if(idx == 61):
-            print(data)
+            print(data.shape)
             print(label)
             exit(0)
     # print(titanic_train_data)
