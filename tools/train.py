@@ -13,8 +13,9 @@ import random
 
 torch.autograd.set_detect_anomaly(True)
 def train(data_path, train):
-    dataset = TitanicData('train', data_path, isTrain=True)
-    train_loader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0)
+    train_dataset = TitanicData('train', data_path, isTrain=True)
+    val_dataset = TitanicData('val', data_path, isTrain=True)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
     model = TitanicModel(22, 15, 10, 1)
     criterion = nn.MSELoss()
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=1E-4)
@@ -30,7 +31,7 @@ def train(data_path, train):
     best_epoch = -1
     if(train == True):
         with torch.no_grad():
-            best_val_acc, best_val_loss = evaluate(model, dataset, criterion)
+            best_val_acc, best_val_loss = evaluate(model, val_dataset, criterion)
             print('Best Validation Accuracy : {}'.format(best_val_acc))
             print('Best Validation Loss : {}'.format(best_val_loss))
             # exit(0)
@@ -55,14 +56,14 @@ def train(data_path, train):
                     print('Epoch {}/{} : Step {}/{}, Loss: {:.4f}'
                             .format(epoch + 1, 30, i + 1, len(train_loader), loss.item()))
             with torch.no_grad():
-                validation_acc, val_loss = evaluate(model, dataset, criterion)
+                validation_acc, val_loss = evaluate(model, val_dataset, criterion)
             model.train()
             scheduler.step()
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 best_val_acc = validation_acc
                 best_epoch = epoch
-                torch.save(model.state_dict(), "tools/titanic_best_epoch_fastlr_improved_data_pca_{}.pth".format(epoch + 1))
+                # torch.save(model.state_dict(), "tools/titanic_best_epoch_fastlr_improved_data_pca_{}.pth".format(epoch + 1))
             print('Best Validation Loss : {}'.format(best_val_loss))
             print('Best Validation Accuracy : {}'.format(best_val_acc))
             print('Best Epoch: {}'.format(best_epoch + 1))
@@ -79,5 +80,5 @@ if __name__ == '__main__':
     torch.manual_seed(1111)
     np.random.seed(1111)
     random.seed(1111)
-    best_val_loss = train("./dataset/train.csv", False)
+    best_val_loss = train("./dataset/train.csv", True)
     print(best_val_loss)

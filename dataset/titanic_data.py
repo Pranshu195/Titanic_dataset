@@ -4,80 +4,74 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 class TitanicData(Dataset):
-    def __init__(self, split, data_path, isTrain = False):
+    def __init__(self, split, data_path):
         super(TitanicData, self).__init__()
-        self.isTrain = isTrain
         self.data_path = data_path
         self.split = split
         self.data, self.labels = self.get_data()
         print('Total {} passengers in {} data'.format(len(self.data[:,0]), split))
     
+    def data_util(self):
+        data_path = self.data_path
+        df = pd.read_csv(data_path)
+        # train = train[:50]
+        df = self.process_family(df)
+        df = self.process_embarked(df)
+        df = self.process_cabin(df)
+        df = self.get_titles(df)
+        df = self.get_age(df)
+        df = self.process_names(df)
+        df = df.assign(sex_class = df['Sex'] + "_" + df['Pclass'].astype("str"))
+        df["Sex"] = df["Sex"].map({"female":0, "male":1})
+        df["sex_class"] = df["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
+        df.drop("Ticket", axis=1, inplace=True)
+        df.drop("PassengerId", axis=1, inplace = True)
+        return df
+        # survived = df["Survived"]
+        # df.drop("Survived", axis = 1, inplace= True)
+
+        # train = train[:60]
+        # print(train.shape)
+    
+        # labels = survived.to_numpy()
+        # data = train.to_numpy()
+        # data = self.get_data_pca(data)
+        # data = data[:60]
+        # print(data[:5])
+        # print(data.shape)
+
+
     def get_data(self):
         data_path = self.data_path
-        if(self.split == 'train' or self.split == 'val'):
-            train = pd.read_csv(data_path)
-            train = self.process_family(train)
-            train = self.process_embarked(train)
-            train = self.process_cabin(train)
-            train = self.get_titles(train)
-            # print(train['Age'].isnull().sum())
-            train = self.get_age(train)
-            train = self.process_names(train)
-            # print(train.isna().sum())
-            # print(train["Pclass"].unique())
-            # print(train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
-            #train.drop("Name", axis=1, inplace=True)
-            #train.drop("Age", axis=1, inplace=True)
-            train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
-            train["Sex"] = train["Sex"].map({"female":0, "male":1})
-            train["sex_class"] = train["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
-            # train["fsize"] = train["SibSp"] + train["Parch"] + 1
-            train.drop("Ticket", axis=1, inplace=True)
-            #train.drop("Cabin", axis=1,inplace=True)
-            #train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3, "":0})
-            #train = train.fillna(0)
-            # train.drop("Embarked", axis=1, inplace=True)
-            train.drop("PassengerId", axis=1, inplace = True)
-            survived = train["Survived"]
-            # print(survived)
-            train.drop("Survived", axis = 1, inplace= True)
-            print(train)
+        df = self.data_util()
+        if self.split == 'train':
+            survived = df["Survived"]
+            df.drop("Survived", axis = 1, inplace= True)
             labels = survived.to_numpy()
-            data = train.to_numpy()
+            data = df.to_numpy()
             data = self.get_data_pca(data)
-            # print(data)
-        elif(self.split == 'test'): 
-            train = pd.read_csv(data_path)
-            train = self.process_family(train)
-            train = self.process_embarked(train)
-            train = self.process_cabin(train)
-            train = self.get_titles(train)
-            # print(train['Age'].isnull().sum())
-            train = self.get_age(train)
-            train = self.process_names(train)
-            # print(train.isna().sum())
-            # print(train["Pclass"].unique())
-            # print(train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
-            # train.drop("Name", axis=1, inplace=True)
-            # train.drop("Age", axis=1, inplace=True)
-            train = train.assign(sex_class = train['Sex'] + "_" + train['Pclass'].astype("str"))
-            train["Sex"] = train["Sex"].map({"female":0, "male":1})
-            train["sex_class"] = train["sex_class"].map({"female_1":0, "female_2":1, "female_3":2, "male_1":4, "male_2":5, "male_3":6})
-            # train["fsize"] = train["SibSp"] + train["Parch"] + 1
-            train.drop("Ticket", axis=1, inplace=True)
-            # train.drop("Cabin", axis=1,inplace=True)
-            # train["Embarked"] = train["Embarked"].map({"S":1, "Q":2, "C":3})
-            # train = train.fillna(0)
-            # print("Here")
-            # print(train)
-            # train.drop("Embarked", axis=1, inplace=True)
-            train.drop("PassengerId", axis=1, inplace = True)
-            print(train.isnull().sum())
-            print(train.loc[train['Fare'].isnull()].index)
-            train['Fare'].fillna(0, inplace=True)
-            print(train.isnull().sum())
+            data = data[60:]
+            survived = survived[60:]
+            print(data.shape)
+            # print(data[:5])
+        elif self.split == 'val' :
+            survived = df["Survived"]
+            df.drop("Survived", axis = 1, inplace= True)
+            labels = survived.to_numpy()
+            data = df.to_numpy()
+            data = self.get_data_pca(data)
+            data = data[:60]
+            survived = survived[:60]
+            print(data.shape)
+            # print(data[:5])
 
-            data = train.to_numpy()
+        elif(self.split == 'test'): 
+            # print(df.isnull().sum())
+            # print(df.loc[df['Fare'].isnull()].index)
+            df['Fare'].fillna(0, inplace=True)
+            # print(df.isnull().sum())
+
+            data = df.to_numpy()
             data = self.get_data_pca(data)
             labels = np.zeros((len(data[:,0])))
             # data = self.get_data_pca(data)      
@@ -219,13 +213,13 @@ class TitanicData(Dataset):
 
 ##Testing the dataloader
 if __name__ == '__main__':
-    titanic_train_data = TitanicData('train', data_path='./dataset/train.csv', isTrain=True)
+    titanic_train_data = TitanicData('val', data_path='./dataset/train.csv')
     # print(titanic_train_data)
     data_loader = DataLoader(titanic_train_data, batch_size = 1, shuffle=False, num_workers = 0)
     for idx, item in enumerate(data_loader):
         data, label = item
-        if(idx == 61):
+        if(idx == 50):
             print(data.shape)
-            print(label)
+            print(label.shape)
             exit(0)
     # print(titanic_train_data)
