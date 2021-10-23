@@ -5,21 +5,48 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
 from dataset.titanic_data import TitanicData
 from model.titanic_regression import TitanicModel
+from model.random_forest import Feature_Selection_Node, Decision_Node
 from tools.evaluate import evaluate
 from tools.eval_test import eval_test
 from tqdm import tqdm
 import numpy as np
 import random
+import pandas as pd
+
+from sklearn.ensemble import RandomForestClassifier
+
 
 torch.autograd.set_detect_anomaly(True)
+
+# def frequency(d):
+#     dic = {}
+#     for item in d:
+#         if item in dic.keys():
+#             dic[item] = dic[item] + 1
+#         else:
+#             dic[item] = 1
+#     dic = {"values" : dic.keys(), "count": dic.values()}
+#     df = pd.DataFrame.from_dict(dic, orient = 'index').transpose().sort_values(["values"])
+#     df["cum"] = df["count"] / df["count"].sum()
+#     value = df["cum"].values
+#     value = torch.from_numpy(value).float()
+#     value = 1- value*value
+#     value = value.sum(-1)
+#     return value
+
 def train(data_path, train):
-    train_dataset = TitanicData('train', data_path, isTrain=True)
-    val_dataset = TitanicData('val', data_path, isTrain=True)
+    batch_size = 2
+    train_dataset = TitanicData('train', data_path)
+    val_dataset = TitanicData('val', data_path)
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
+    # mask = Feature_Selection_Node(100, batch_size)
+    # decision = Decision_Node(100, 200, 1, batch_size)
+    # params = list(mask.parameters()) + list(decision.parameters())
     model = TitanicModel(22, 15, 10, 1)
     criterion = nn.MSELoss()
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=1E-4)
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
+    optimizer = torch.optim.Adam( model.parameters(), lr=1e-3)
+
     #optimizer = torch.optim.Adam(model.fc.parameters(), lr=args.lr)
     # optimizer.add_param_group({'params': model.parameters(), 'lr': 1e-4})
     
@@ -63,7 +90,7 @@ def train(data_path, train):
                 best_val_loss = val_loss
                 best_val_acc = validation_acc
                 best_epoch = epoch
-                # torch.save(model.state_dict(), "tools/titanic_best_epoch_fastlr_improved_data_pca_{}.pth".format(epoch + 1))
+                # torch.save(model.state_dict(), "Trained_models_dump/titanic_best_epoch_fastlr_improved_data_pca_{}.pth".format(epoch + 1))
             print('Best Validation Loss : {}'.format(best_val_loss))
             print('Best Validation Accuracy : {}'.format(best_val_acc))
             print('Best Epoch: {}'.format(best_epoch + 1))
@@ -71,7 +98,7 @@ def train(data_path, train):
                 .format(epoch + 1, 30, train_loss / len(train_loader), val_loss, validation_acc))
     else:
         print("for creating submission file")
-        model.load_state_dict(torch.load('tools/titanic_best_epoch_fastlr_improved_data_pca_30.pth'))
+        model.load_state_dict(torch.load('Trained_models_dump/titanic_best_epoch_fastlr_improved_data_pca_30.pth'))
         dataset1 = TitanicData('test', "./dataset/test.csv", isTrain=False)
         eval_test(model, dataset1, criterion)
     return best_val_loss

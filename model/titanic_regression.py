@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np 
 import random
+
+
+
 class TitanicModel(nn.Module):
     def __init__(self, input_size, hidden_size_1, hidden_size_2, output_size):
         super(TitanicModel, self).__init__()
